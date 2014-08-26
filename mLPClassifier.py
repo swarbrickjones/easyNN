@@ -28,7 +28,10 @@ class MLPClassifier(object) :
         self.n_epochs = n_epochs
         self.batch_size=batch_size
         self.n_hidden = n_hidden
-        self.mlp = getMLP(input_size,n_hidden,output_size)
+        self.x = T.matrix('x')  
+    # construct the MLP class
+        self.mlp =  MLP(input = self.x, n_in = input_size, \
+                     n_hidden = n_hidden, n_out = output_size)
         
 #    def train(self,X,y):
 #        X_train, X_valid, y_train, y_valid = splitData(X,y)
@@ -56,23 +59,15 @@ def splitData(X,y):
     # First 90% train, Lirst 10% validation
     return  X_train, \
             X_valid, \
-            T.cast(y_train,'int32'), \
-            T.cast(y_valid,'int32')
+            T.as_tensor_variable(y_train), \
+            T.as_tensor_variable(y_valid)
     
-def getMLP(n_in,n_hidden,n_out):
-    x = T.matrix('x')  
-    # construct the MLP class
-    return MLP(input=x, n_in=n_in,
-                     n_hidden=n_hidden, n_out=n_out)
   
-def train_model(classifier, X, y, L1_reg, L2_reg, 
+def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg, 
                 learning_rate, n_epochs, batch_size) :
     
     index = T.lscalar()
-    x = T.matrix('x') 
-    y = T.ivector('y') 
-    
-    X_train,X_valid,y_train,y_valid = splitData(X,y)
+    y = T.ivector('y')     
     
     n_train_batches = X_train.get_value(borrow=True).shape[0] / batch_size
     n_valid_batches = X_valid.get_value(borrow=True).shape[0] / batch_size
@@ -191,16 +186,24 @@ def train_model(classifier, X, y, L1_reg, L2_reg,
 
 datasets = load_data('mnist.pkl.gz')
 
-X_shared, y_shared = datasets[0]
-X,y = X_shared.eval() , y_shared.eval()
+X, y = datasets[0]
 
-print(type(X_shared))
-print(type(y_shared)) 
+X_train,X_valid,y_train,y_valid = splitData(X.get_value(),y.eval())
 
-print(y[0:100])   
-print(type(y))
+#print(X_train.get_value().shape[0])
+#X_train = shared(X_train.get_value())
+#print(X_train.get_value().shape[0])
+#X_valid, y_valid = datasets[1]
 
-mlp = MLPClassifier(28 * 28, 10)
+#r = np.random.rand(X_train.get_value().shape[0])    
+    
+#X_train = shared(X_train.get_value()[r<0.9])
+#X_valid = shared(X_valid.get_value()[r<0.9])
+    
+#y_train = T.as_tensor_variable(y_train.eval()[r<0.9])
+#y_valid = T.as_tensor_variable(y_valid.eval()[r<0.9],dtype='int32')
 
-train_model(mlp.mlp,X,y,L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
+clf = MLPClassifier(28 * 28, 10)
+
+train_model(clf.mlp, clf.x, X_train,X_valid,y_train, y_valid,L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
              learning_rate=0.01,batch_size=20)
