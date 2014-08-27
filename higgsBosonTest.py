@@ -32,7 +32,7 @@ print 'Training classifier (this may take some time!)'
 
 #create classifier
 num_features = X_train.shape[1]
-clf = MLPClassifier(num_features, 2, n_epochs = 100, \
+clf = MLPClassifier(num_features, 2, n_epochs = 10, \
             n_hidden=100,learning_rate=0.01,  \
             L1_reg=0.00, L2_reg=0.000001,  \
             batch_size=20) \
@@ -41,8 +41,30 @@ clf.fit(X_train,y_train)
 
 Yhat_train = clf.predict(X_train)
 Yhat_valid = clf.predict(X_valid)
+def AMSScore(s,b): return  math.sqrt (2.*( (s + b + 10.)*math.log(1.+s/(b+10.))-s))
 
-print(Yhat_train[0:100])
+for index in range(10):
+    prob_predict_train = clf.predict_proba(X_train)[:,1]    
+    prob_predict_valid = clf.predict_proba(X_valid)[:,1]
+    pcut = np.percentile(prob_predict_train,10 * index)
+    Yhat_train = prob_predict_train > pcut 
+    Yhat_valid = prob_predict_valid > pcut
+    TruePositive_train = W_train*(y_train==1.0)*(1.0/0.9)
+    TrueNegative_train = W_train*(y_train==0.0)*(1.0/0.9)
+    TruePositive_valid = W_valid*(y_valid==1.0)*(1.0/0.1)
+    TrueNegative_valid = W_valid*(y_valid==0.0)*(1.0/0.1)
+ 
+# s and b for the training 
+    s_train = sum ( TruePositive_train*(Yhat_train==1.0) )
+    b_train = sum ( TrueNegative_train*(Yhat_train==1.0) )
+    s_valid = sum ( TruePositive_valid*(Yhat_valid==1.0) )
+    b_valid = sum ( TrueNegative_valid*(Yhat_valid==1.0) )
+ 
+# Now calculate the AMS scores
+    print pcut
+    print '   - AMS based on 90% training   sample:',AMSScore(s_train,b_train)
+    print '   - AMS based on 10% validation sample:',AMSScore(s_valid,b_valid)
+    
 
 # Benchmark code//
 #gbc = GBC(n_estimators=50, max_depth=5,min_samples_leaf=200,max_features=10,verbose=1)
