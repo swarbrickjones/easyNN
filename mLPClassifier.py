@@ -7,7 +7,6 @@ import numpy as np
 
 import theano
 import theano.tensor as T
-from theano import shared
 from mlp import MLP
 from logistic_sgd import  load_data
 
@@ -28,39 +27,66 @@ class MLPClassifier(object) :
         self.n_epochs = n_epochs
         self.batch_size=batch_size
         self.n_hidden = n_hidden
-        self.x = T.matrix('x')  
-    # construct the MLP class
+        self.x = T.matrix('x')      
         self.mlp =  MLP(input = self.x, n_in = input_size, \
                      n_hidden = n_hidden, n_out = output_size)
         
-#    def train(self,X,y):
-#        X_train, X_valid, y_train, y_valid = splitData(X,y)
-#        return
+    def fit(self,X,y):
+         X_train, X_valid, y_train, y_valid = self.splitData(X,y)
+         train_model(self.mlp,self.x, X_train,X_valid,y_train,
+                     y_valid, self.L1_reg, 
+                     self.L2_reg, self.learning_rate, 
+                     self.n_epochs, self.batch_size)
 #        
-#    def pred(self,X):
-#        return
-#        
-#    def pred_proba(self):
-#        return
+    def predict(self,X, y = None):        
+        fit_model = theano.function(
+            inputs=[],
+            outputs=self.mlp.predict_class,
+            givens={self.x : X}
+            )
+        output = fit_model()
+        if(y != None):
+            validate_model = theano.function(inputs=[],
+            outputs=self.mlp.errors(y),
+            givens={
+                self.x: X,
+                y: y})
+            print((' validation error %f %%') % (validate_model() * 100.))
+        return fit_model()
         
-def splitData(X,y):
-    def getSharedInstance(array):
-        return theano.shared(np.asarray(array, dtype=theano.config.floatX))
-    
-    r = np.random.rand(X.shape[0])    
-    
-    X_train = getSharedInstance(X[r<0.9])
-    X_valid = getSharedInstance(X[r>=0.9])
-    
-    y_train = y[r<0.9]
-    y_valid = y[r>=0.9]
-    
-    print(type(T.cast(y_valid,'int32')))
-    # First 90% train, Lirst 10% validation
-    return  X_train, \
-            X_valid, \
-            T.as_tensor_variable(y_train), \
-            T.as_tensor_variable(y_valid)
+    def predict_proba(self,X, y = None):        
+        fit_model = theano.function(
+            inputs=[],
+            outputs=self.mlp.predict_proba,
+            givens={self.x : X}
+            )
+        output = fit_model()
+        if(y != None):
+            validate_model = theano.function(inputs=[],
+            outputs=self.mlp.errors(y),
+            givens={
+                self.x: X,
+                y: y})
+            print((' validation error %f %%') % (validate_model() * 100.))
+        return fit_model()
+        
+    def getSharedInstance(self,array):
+            return theano.shared(np.asarray(array, dtype=theano.config.floatX))
+        
+    def splitData(self,X,y):    
+        r = np.random.rand(X.shape[0])    
+        
+        X_train = self.getSharedInstance(X[r<0.9])
+        X_valid = self.getSharedInstance(X[r>=0.9])
+        
+        y_train = T.as_tensor_variable(y[r<0.9])
+        y_valid = T.as_tensor_variable(y[r>=0.9])
+        
+        # First 90% train, Lirst 10% validation
+        return  X_train, \
+                X_valid, \
+                T.cast(y_train,'int32'), \
+                T.cast(y_valid,'int32')
     
   
 def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg, 
@@ -74,9 +100,7 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
     
     cost = classifier.negative_log_likelihood(y) \
          + L1_reg * classifier.L1 \
-         + L2_reg * classifier.L2_sqr
-    
-       
+         + L2_reg * classifier.L2_sqr       
     
     validate_model = theano.function(inputs=[index],
             outputs=classifier.errors(y),
@@ -94,10 +118,6 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
     # specify how to update the parameters of the model as a list of
     # (variable, update expression) pairs
     updates = []
-    # given two list the zip A = [a1, a2, a3, a4] and B = [b1, b2, b3, b4] of
-    # same length, zip generates a list C of same size, where each element
-    # is a pair formed from the two lists :
-    #    C = [(a1, b1), (a2, b2), (a3, b3), (a4, b4)]
     for param, gparam in zip(classifier.params, gparams):
         updates.append((param, param - learning_rate * gparam))
 
@@ -113,7 +133,7 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
     print '... training'
 
     # early-stopping parameters
-    patience = 10000  # look as this many examples regardless
+    patience = 1000000  # look as this many examples regardless
     patience_increase = 2  # wait this much longer when a new best is
                            # found
     improvement_threshold = 0.995  # a relative improvement of this much is
@@ -127,7 +147,6 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
     #best_params = None
     best_validation_loss = np.inf
     best_iter = 0
-    test_score = 0.
     start_time = time.clock()
 
     epoch = 0
@@ -166,10 +185,10 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
                     #               in xrange(n_test_batches)]
                     #test_score = numpy.mean(test_losses)
 
-                    print(('     epoch %i, minibatch %i/%i, test error of '
-                           'best model %f %%') %
-                          (epoch, minibatch_index + 1, n_train_batches,
-                           test_score * 100.))
+                    #print(('     epoch %i, minibatch %i/%i, test error of '
+                    #       'best model %f %%') %
+                    #      (epoch, minibatch_index + 1, n_train_batches,
+                    #       test_score * 100.))
 
             if patience <= iter:
                     done_looping = True
@@ -177,33 +196,38 @@ def train_model(classifier,x, X_train,X_valid,y_train,y_valid, L1_reg, L2_reg,
 
     end_time = time.clock()
     print(('Optimization complete. Best validation score of %f %% '
-           'obtained at iteration %i, with test performance %f %%') %
-          (best_validation_loss * 100., best_iter + 1, test_score * 100.))
+           'obtained at iteration %i %%') %
+          (best_validation_loss * 100., best_iter + 1))
     print >> sys.stderr, ('The code for file ' +
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((end_time - start_time) / 60.))
+                          
 
-
-datasets = load_data('mnist.pkl.gz')
-
-X, y = datasets[0]
-
-X_train,X_valid,y_train,y_valid = splitData(X.get_value(),y.eval())
-
-#print(X_train.get_value().shape[0])
-#X_train = shared(X_train.get_value())
-#print(X_train.get_value().shape[0])
-#X_valid, y_valid = datasets[1]
-
-#r = np.random.rand(X_train.get_value().shape[0])    
     
-#X_train = shared(X_train.get_value()[r<0.9])
-#X_valid = shared(X_valid.get_value()[r<0.9])
+
+def run():
     
-#y_train = T.as_tensor_variable(y_train.eval()[r<0.9])
-#y_valid = T.as_tensor_variable(y_valid.eval()[r<0.9],dtype='int32')
-
-clf = MLPClassifier(28 * 28, 10)
-
-train_model(clf.mlp, clf.x, X_train,X_valid,y_train, y_valid,L1_reg=0.00, L2_reg=0.0001, n_epochs=1000,
-             learning_rate=0.01,batch_size=20)
+    datasets = load_data('mnist.pkl.gz')
+    
+    X, y = datasets[0]
+    
+    clf = MLPClassifier(28 * 28, 10, n_epochs = 10)
+    
+    clf.train(X.get_value(),y.eval())
+    
+    #print(X_train.get_value().shape[0])
+    #X_train = shared(X_train.get_value())
+    #print(X_train.get_value().shape[0])
+    X_test, y_test = datasets[2]
+    
+    clf.fit(X_test,y_test)
+    
+    #r = np.random.rand(X_train.get_value().shape[0])    
+        
+    #X_train = shared(X_train.get_value()[r<0.9])
+    #X_valid = shared(X_valid.get_value()[r<0.9])
+        
+    #y_train = T.as_tensor_variable(y_train.eval()[r<0.9])
+    #y_valid = T.as_tensor_variable(y_valid.eval()[r<0.9],dtype='int32')
+    
+                 

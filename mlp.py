@@ -80,3 +80,7 @@ class MLP(object):
         # the parameters of the model are the parameters of the two layer it is
         # made out of
         self.params = self.hiddenLayer.params + self.logRegressionLayer.params
+        
+        self.predict_class = self.logRegressionLayer.y_pred
+        
+        self.predict_proba = self.logRegressionLayer.p_y_given_x
