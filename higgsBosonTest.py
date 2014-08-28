@@ -3,6 +3,7 @@ import numpy as np
 from sklearn import preprocessing
 import math
 from multiMLPClassifier import MultiMLPClassifier
+from hiddenLayer import  ReLU
  
 # Load training data
 print 'Loading training data.'
@@ -34,14 +35,45 @@ print 'Training classifier (this may take some time!)'
 
 #create classifier
 
-layer_sizes = [256,32,4]
-print 'name',layer_sizes,'name'
+initial_learning_rate = 1.0
+learning_rate_decay = 0.998
+squared_filter_length_limit = 15.0
+n_epochs=10
+layer_sizes = [X_train.shape[1],10, 10, 2]
+    
+# dropout rate for each layer
+dropout_rates = [ 0.2, 0.5, 0.5 ]
+    # activation functions for each layer
+    # For this demo, we don't need to set the activation functions for the 
+    # on top layer, since it is always 10-way Softmax
+activations = [ ReLU, ReLU ]
+
+batch_size = 100
+
+#### the params for momentum
+mom_start = 0.5
+mom_end = 0.99
+# for epoch in [0, mom_epoch_interval], the momentum increases linearly
+# from mom_start to mom_end. After mom_epoch_interval, it stay at mom_end
+mom_epoch_interval = 500
+mom_params = {"start": mom_start,
+              "end": mom_end,
+              "interval": mom_epoch_interval}
 
 num_features = X_train.shape[1]
-clf = MultiMLPClassifier(num_features, 2, n_epochs = 50, \
-            layer_sizes=layer_sizes,learning_rate=0.003,  \
-            L1_reg=0.00, L2_reg=0.0000001,  \
-            batch_size=20) \
+clf = MultiMLPClassifier(
+        initial_learning_rate = initial_learning_rate,
+        learning_rate_decay = learning_rate_decay,
+        squared_filter_length_limit = squared_filter_length_limit,
+        n_epochs=n_epochs,
+        batch_size=batch_size,
+        mom_params = mom_params,
+        activations=activations,
+        dropout= True,
+        dropout_rates=dropout_rates,
+        layer_sizes=layer_sizes, 
+        use_bias=True,
+        random_seed=1234) \
 
 clf.fit(X_train,y_train)
 
