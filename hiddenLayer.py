@@ -6,6 +6,7 @@ import theano.tensor as T
 class HiddenLayer(object):
     def __init__(self, rng, input, n_in, n_out, W=None, b=None,
                  activation=T.tanh):
+                     
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
@@ -31,6 +32,8 @@ class HiddenLayer(object):
         :param activation: Non linearity to be applied in the hidden
                            layer
         """
+        
+        print 'creating hidden layer with ', n_in, ' incoming units, ', n_out , ' units in layer'
         self.input = input
 
         # `W` is initialized with `W_values` which is uniformely sampled

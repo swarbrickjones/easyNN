@@ -30,11 +30,17 @@ W_valid = data_train[:,31][r>=0.9]
 # Train the GradientBoostingClassifier using our good features
 print 'Training classifier (this may take some time!)'
 
+
+
 #create classifier
+
+layer_sizes = [256,32,4]
+print 'name',layer_sizes,'name'
+
 num_features = X_train.shape[1]
-clf = MultiMLPClassifier(num_features, 2, n_epochs = 10, \
-            layer_sizes=[100],learning_rate=0.01,  \
-            L1_reg=0.00, L2_reg=0.000001,  \
+clf = MultiMLPClassifier(num_features, 2, n_epochs = 50, \
+            layer_sizes=layer_sizes,learning_rate=0.003,  \
+            L1_reg=0.00, L2_reg=0.0000001,  \
             batch_size=20) \
 
 clf.fit(X_train,y_train)
@@ -59,36 +65,44 @@ b_train = sum ( TrueNegative_train*(Yhat_train==1.0) )
 s_valid = sum ( TruePositive_valid*(Yhat_valid==1.0) )
 b_valid = sum ( TrueNegative_valid*(Yhat_valid==1.0) )
 
-#interval = 1
-#
-#for index in range(100 / interval):
-#    prob_predict_train = clf.predict_proba(X_train)[:,1]    
-#    prob_predict_valid = clf.predict_proba(X_valid)[:,1]
-#    pcut = np.percentile(prob_predict_train,interval * index)
-#    Yhat_train = prob_predict_train > pcut 
-#    Yhat_valid = prob_predict_valid > pcut
-#    TruePositive_train = W_train*(y_train==1.0)*(1.0/0.9)
-#    TrueNegative_train = W_train*(y_train==0.0)*(1.0/0.9)
-#    TruePositive_valid = W_valid*(y_valid==1.0)*(1.0/0.1)
-#    TrueNegative_valid = W_valid*(y_valid==0.0)*(1.0/0.1)
-# 
-## s and b for the training 
-#    s_train = sum ( TruePositive_train*(Yhat_train==1.0) )
-#    b_train = sum ( TrueNegative_train*(Yhat_train==1.0) )
-#    s_valid = sum ( TruePositive_valid*(Yhat_valid==1.0) )
-#    b_valid = sum ( TrueNegative_valid*(Yhat_valid==1.0) )
-# 
-## Now calculate the AMS scores
-#    print pcut
-#    print '   - AMS based on 90% training   sample:',AMSScore(s_train,b_train)
-#    print '   - AMS based on 10% validation sample:',AMSScore(s_valid,b_valid)
+interval = 1
+best_pcut = 0
+best_validation_score = 0.00
+
+for index in range(70 / interval, 90/interval):
+    prob_predict_train = clf.predict_proba(X_train)[:,1]    
+    prob_predict_valid = clf.predict_proba(X_valid)[:,1]
+    pcut = (interval * index * 1.0) / 100.0
+    Yhat_train = prob_predict_train > pcut 
+    Yhat_valid = prob_predict_valid > pcut
+    TruePositive_train = W_train*(y_train==1.0)*(1.0/0.9)
+    TrueNegative_train = W_train*(y_train==0.0)*(1.0/0.9)
+    TruePositive_valid = W_valid*(y_valid==1.0)*(1.0/0.1)
+    TrueNegative_valid = W_valid*(y_valid==0.0)*(1.0/0.1)
+ 
+# s and b for the training 
+    s_train = sum ( TruePositive_train*(Yhat_train==1.0) )
+    b_train = sum ( TrueNegative_train*(Yhat_train==1.0) )
+    s_valid = sum ( TruePositive_valid*(Yhat_valid==1.0) )
+    b_valid = sum ( TrueNegative_valid*(Yhat_valid==1.0) )
+    
+    validation_score = AMSScore(s_valid,b_valid)
+    if(validation_score > best_validation_score):
+        best_validation_score = validation_score
+        best_pcut = pcut
+ 
+# Now calculate the AMS scores
+    print 'pcut: ' , pcut
+    print '   - AMS based on 90% training   sample:',AMSScore(s_train,b_train)
+    print '   - AMS based on 10% validation sample:',AMSScore(s_valid,b_valid), \
+                ' best score so far : ',best_validation_score
     
 
 # Benchmark code//
-#gbc = GBC(n_estimators=50, max_depth=5,min_samples_leaf=200,max_features=10,verbose=1)
-#gbc.fit(X_train,y_train)  
-#prob_predict_train = gbc.predict_proba(X_train)[:,1]
-#prob_predict_valid = gbc.predict_proba(X_valid)[:,1]
+#clf = GBC(n_estimators=50, max_depth=5,min_samples_leaf=200,max_features=10,verbose=1)
+#clf.fit(X_train,y_train)  
+#prob_predict_train = clf.predict_proba(X_train)[:,1]
+#prob_predict_valid = clf.predict_proba(X_valid)[:,1]
 #pcut = np.percentile(prob_predict_train,85)
 #Yhat_train = prob_predict_train > pcut 
 #Yhat_valid = prob_predict_valid > pcut
@@ -99,22 +113,18 @@ b_valid = sum ( TrueNegative_valid*(Yhat_valid==1.0) )
 # Scale the weights according to the r cutoff.
  
 # Now calculate the AMS scores
-print 'Calculating AMS score for a probability cutoff pcut='
-
-print '   - AMS based on 90% training   sample:',AMSScore(s_train,b_train)
-print '   - AMS based on 10% validation sample:',AMSScore(s_valid,b_valid)
  
 # Now we load the testing data, storing the data (X) and index (I)
 print 'Loading testing data'
 data_test = np.loadtxt( 'data/test.csv', delimiter=',', skiprows=1 )
-X_test = data_test[:,1:31]
+X_test = scaler.transform(data_test[:,1:31])
 I_test = list(data_test[:,0])
  
 # Get a vector of the probability predictions which will be used for the ranking
 print 'Building predictions'
 Predictions_test = clf.predict_proba(X_test)[:,1]
 # Assign labels based the best pcut
-Label_test = list(Predictions_test>pcut)
+Label_test = list(Predictions_test>best_pcut)
 Predictions_test =list(Predictions_test)
  
 # Now we get the CSV data, using the probability prediction in place of the ranking
@@ -134,7 +144,7 @@ for y in range(len(resultlist)):
 resultlist = sorted(resultlist, key=lambda a_entry: a_entry[0])
  
 # Write the result list data to a csv file
-print 'Writing a final csv file Kaggle_higgs_prediction_output.csv'
+print 'Writing a final csv file NN_prediction_output.csv'
 fcsv = open('data/NN_prediction_output.csv','w')
 fcsv.write('EventId,RankOrder,Class\n')
 for line in resultlist:
