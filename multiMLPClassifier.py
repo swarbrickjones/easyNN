@@ -7,18 +7,18 @@ import numpy as np
 
 import theano
 import theano.tensor as T
-from mlp import MLP
+from multiMLP import MultiMLP
 from logistic_sgd import  load_data
 
 
 np.random.seed(42)
 rng = np.random.RandomState(1234)
 
-print [500]
 
-class MLPClassifier(object) :
+
+class MultiMLPClassifier(object) :
     
-    def __init__(self,input_size,output_size,n_hidden=500,learning_rate=0.01, 
+    def __init__(self,input_size,output_size,layer_sizes=[500],learning_rate=0.01, 
             L1_reg=0.00, L2_reg=0.0001, 
             n_epochs=1000,batch_size=20):
         self.learning_rate = learning_rate
@@ -26,10 +26,9 @@ class MLPClassifier(object) :
         self.L2_reg = L2_reg
         self.n_epochs = n_epochs
         self.batch_size=batch_size
-        self.n_hidden = n_hidden
         self.x = T.matrix('x')      
-        self.mlp =  MLP(input = self.x, n_in = input_size, \
-                     n_hidden = n_hidden, n_out = output_size)
+        self.mlp =  MultiMLP(input = self.x, n_in = input_size, \
+                     layer_sizes = layer_sizes, n_out = output_size)
         
     def fit(self,X,y):
          X_train, X_valid, y_train, y_valid = self.splitData(X,y)
@@ -44,7 +43,6 @@ class MLPClassifier(object) :
             outputs=self.mlp.predict_class,
             givens={self.x : X}
             )
-        output = fit_model()
         if(y != None):
             validate_model = theano.function(inputs=[],
             outputs=self.mlp.errors(y),
@@ -60,7 +58,6 @@ class MLPClassifier(object) :
             outputs=self.mlp.predict_proba,
             givens={self.x : X}
             )
-        output = fit_model()
         if(y != None):
             validate_model = theano.function(inputs=[],
             outputs=self.mlp.errors(y),

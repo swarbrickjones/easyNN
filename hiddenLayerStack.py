@@ -1,11 +1,14 @@
-import numpy
+import numpy as np
 
 import theano
 import theano.tensor as T
+from hiddenLayer import HiddenLayer
 
-class HiddenLayer(object):
-    def __init__(self, rng, input, n_in, n_out, W=None, b=None,
-                 activation=T.tanh):
+np.random.seed(42)
+this_rng = np.random.RandomState(1234)
+
+class HiddenLayerStack(object):
+    def __init__(self,  input, n_in, layer_sizes,rng=this_rng):
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (n_in,n_out)
@@ -45,25 +48,23 @@ class HiddenLayer(object):
         #        compared to tanh
         #        We have no info for other function, so we use the same as
         #        tanh.
-        if W is None:
-            W_values = numpy.asarray(rng.uniform(
-                    low=-numpy.sqrt(6. / (n_in + n_out)),
-                    high=numpy.sqrt(6. / (n_in + n_out)),
-                    size=(n_in, n_out)), dtype=theano.config.floatX)
-            if activation == theano.tensor.nnet.sigmoid:
-                W_values *= 4
-
-            W = theano.shared(value=W_values, name='W', borrow=True)
-
-        if b is None:
-            b_values = numpy.zeros((n_out,), dtype=theano.config.floatX)
-            b = theano.shared(value=b_values, name='b', borrow=True)
-
-        self.W = W
-        self.b = b
-
-        lin_output = T.dot(input, self.W) + self.b
-        self.output = (lin_output if activation is None
-                       else activation(lin_output))
-        # parameters of the model
-        self.params = [self.W, self.b]
+        
+        self.hidden_layers = getHiddenLayers(input,n_in, layer_sizes)       
+        self.output_size = layer_sizes[-1]
+        
+        self.output = self.hidden_layers[-1].output
+        
+def getHiddenLayers(input,n_in, layer_sizes):
+    input_size = n_in
+    index = 0
+    next_layer_input = input
+    layer_list = []
+    while index < len(layer_sizes):
+        next_layer = HiddenLayer(rng=this_rng, input=next_layer_input, \
+                n_in=input_size, n_out=layer_sizes[index])
+        layer_list.append(next_layer)
+        next_layer_input=next_layer.output
+        input_size = layer_sizes[index]
+        index+=1
+    return layer_list
+    

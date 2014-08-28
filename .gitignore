@@ -1,2 +1,4 @@
-HBdata
-HBdata/*
+data
+data/*
+*.pyc
+*~
