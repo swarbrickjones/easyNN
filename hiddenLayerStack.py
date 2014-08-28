@@ -54,6 +54,9 @@ class HiddenLayerStack(object):
         
         self.output = self.hidden_layers[-1].output
         
+        self.params =   [layer.W for layer in self.hidden_layers] + \
+                        [layer.b for layer in self.hidden_layers]
+        
 def getHiddenLayers(input,n_in, layer_sizes):
     input_size = n_in
     index = 0
